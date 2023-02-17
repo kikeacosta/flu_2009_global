@@ -82,59 +82,46 @@ dts2 <-
                           "NZL_NP" = "NZL")) %>%
   rename(Code = PopCode) 
 
-# tot_sex <- 
-#   dts2 %>% 
-#   filter(Sex == "t") %>% 
-#   select(Code, Year, Week, Age, d_s_tot = Deaths)
-# 
-# dts3 <- 
-#   dts2 %>% 
-#   filter(Sex != "t") %>% 
-#   left_join(tot_sex) %>% 
-#   group_by(Code, Age, Year, Week) %>% 
-#   mutate(Deaths = ifelse(d_s_tot!=0 & Deaths!=0, d_s_tot * Deaths/sum(Deaths), 0)) %>% 
-#   select(-d_s_tot) %>% 
-#   bind_rows(dts2 %>% 
-#               filter(Sex == "t"))
-# 
-# tot_age <- 
-#   dts2 %>% 
-#   filter(Age == "TOT") %>% 
-#   select(Code, Year, Week, Sex, d_a_tot = Deaths)
+# # re-scaling ages and sexes
+# dts3 <-
+#   dts2 %>%
+#   group_by(Code, Sex, Year, Week) %>%
+#   do(rescale_age(chunk = .data)) %>%
+#   ungroup() %>%
+#   group_by(Code, Age, Year, Week) %>%
+#   do(rescale_sex(chunk = .data)) %>%
+#   ungroup() %>%
+#   mutate(Age = Age %>% as.double()) %>%
+#   arrange(Code, Year, Week, Sex, Age)
 # 
 # dts4 <- 
 #   dts3 %>% 
-#   filter(Age != "TOT") %>% 
-#   left_join(tot_age) %>% 
-#   group_by(Code, Sex, Year, Week) %>% 
-#   mutate(Deaths = ifelse(d_a_tot!=0 & Deaths!=0, d_a_tot * Deaths/sum(Deaths), 0)) %>% 
-#   select(-d_a_tot) 
-
-
-# re-scaling ages and sexes
-dts3 <-
-  dts2 %>%
-  group_by(Code, Sex, Year, Week) %>%
-  do(rescale_age(chunk = .data)) %>%
-  ungroup() %>%
-  group_by(Code, Age, Year, Week) %>%
-  do(rescale_sex(chunk = .data)) %>%
-  ungroup() %>%
-  mutate(Age = Age %>% as.double()) %>%
-  arrange(Code, Year, Week, Sex, Age)
-
-dts3 <- 
-  dts2 %>% 
-  filter(Age != "TOT") %>% 
-  mutate(Age = Age %>% as.integer())
+#   mutate(Country = countrycode(sourcevar = Code, 
+#                                origin = "iso3c", 
+#                                destination = "country.name")) %>% 
+#   select(Country, Code, Year, Week, Sex, Age, Deaths) %>% 
+#   arrange(Code, Year, Week, Sex, Age)
+# 
 
 dts4 <- 
-  dts3 %>% 
-  mutate(Country = countrycode(sourcevar = Code, 
-                               origin = "iso3c", 
-                               destination = "country.name")) %>% 
-  select(Country, Code, Year, Week, Sex, Age, Deaths) %>% 
-  arrange(Code, Year, Week, Sex, Age)
+  dts2 %>% 
+  filter(Age != "TOT") %>% 
+  mutate(Age = Age %>% as.integer(), 
+         Country = countrycode(sourcevar = Code,
+                               origin = "iso3c",
+                               destination = "country.name")) %>%
+  select(country = Country,
+         code = Code,
+         year = Year,
+         week = Week,
+         sex = Sex,
+         age = Age,
+         dts = Deaths) %>% 
+  drop_na(week, country) %>% 
+  mutate(isoweek = paste0(year, "-W", sprintf("%02d", week), "-7"),
+         date = ISOweek2date(isoweek))
+
 
 # saving data
 write_rds(dts4, "data_inter/stmf.rds"); write_csv(dts4, "data_inter/stmf.csv")
+
